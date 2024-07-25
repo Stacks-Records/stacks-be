@@ -5,6 +5,8 @@ const cors = require('cors')
 app.use(express.json())
 app.use(cors())
 
+app.use(express.static(path.join(__dirname, 'build')))
+
 app.set('port', process.env.PORT || 3000);
 app.locals.title = 'Stacks';
 
@@ -218,6 +220,6 @@ app.get('/', (request, response) => {
     response.send(app.locals.albums)
 });
 
-app.post('/', (req, res) => {
+// app.post('/', (req, res) => {
 
-})
+// })
