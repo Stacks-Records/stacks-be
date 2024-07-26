@@ -9,8 +9,6 @@ app.use(cors())
 app.set('port', process.env.PORT || 3000);
 app.locals.title = 'Stacks';
 
-
-
 app.listen(app.get('port'), () => {
     console.log(`${app.locals.title} is running on http://localhost:${app.get('port')}.`);
 })
@@ -100,7 +98,7 @@ app.locals.albums = [
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/9/9b/Tame_Impala_-_Currents.png',
         albumsSold: 1325034,
     },
-     {
+    {
         id: '07243-849608',
         albumName: 'Discovery',
         artist: 'Daft Punk',
@@ -113,7 +111,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=A2VpR8HahKc&list=PLSdoVPM5WnndSQEXRz704yQkKwx76GvPV',
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/2/27/Daft_Punk_-_Discovery.png',
         albumsSold: 2856000,
-    }, 
+    },
     {
         id: 'DFA-2250LP',
         albumName: 'This is Happening',
@@ -127,7 +125,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=9ZNkPA_zUd4&list=OLAK5uy_lGgRvgGZf4SkJH8vN5Vt-5JBPwxgqNGgQ',
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/7/7e/Lcdthisishappening.jpg',
         albumsSold: 300000,
-    }, 
+    },
     {
         id: 'V6-8409',
         albumName: 'The Essential Charlie Parker',
@@ -141,7 +139,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=yOKtvLqzhBg',
         imgURL: 'https://i.discogs.com/pzRJY2IbBKGnkaw9-jT1w7Y1ImsnTSg7-twB_ycnEzw/rs:fit/g:sm/q:90/h:591/w:592/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTMzNDI2/NzQtMTM5Mjc1NjUx/OS00MjUwLmpwZWc.jpeg',
         albumsSold: null,
-    }, 
+    },
     {
         id: 'AFL1-2686',
         albumName: 'Waylon & Willie',
@@ -155,7 +153,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=i85ob2DackI&list=OLAK5uy_nOKWcp0nCDApfOzl2YXxfc3OaJMdvBtIM',
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/9/9a/JenningsNelsonWaylon%26Willie.jpg',
         albumsSold: 21000000,
-    }, 
+    },
     {
         id: 'T-416',
         albumName: 'The Hit Makers!',
@@ -169,7 +167,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=6agWO5f4Tzs',
         imgURL: 'https://i.discogs.com/pK2s6x4w0YRfEUrzE5Gd-bdL5jAb7LjHv-V8Tnwqlek/rs:fit/g:sm/q:90/h:596/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIyMDYx/MTUtMTQ2NDQ0NjI3/MS01NDgxLmpwZWc.jpeg',
         albumsSold: null,
-    }, 
+    },
     {
         id: 'CL-2249',
         albumName: 'WEDNESDAY MORNING, 3AM',
@@ -183,7 +181,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=1CAlRaLHINw&list=PLiN-7mukU_RGs6EIvLhRff-PVLG25otOV',
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/2/2c/Simon_%26_Garfunkel%2C_Wednesday_Morning%2C_3_A.M._%281964%29.png',
         albumsSold: 1000000,
-    }, 
+    },
     {
         id: 'EKS-74071',
         albumName: 'Fun House',
@@ -197,7 +195,7 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=1OedEgzDl_I',
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/6/6d/StoogesFunHouse.jpg',
         albumsSold: 89000,
-    }, 
+    },
     {
         id: 'B0026745-01',
         albumName: 'DAMN',
@@ -211,14 +209,41 @@ app.locals.albums = [
         youTubeAlbumURL: 'https://www.youtube.com/watch?v=5OaGBXAzFY0',
         imgURL: 'https://upload.wikimedia.org/wikipedia/en/5/51/Kendrick_Lamar_-_Damn.png',
         albumsSold: 4255414,
-    }, 
-    
+    },
+
 ]
 
 app.get('/', (request, response) => {
-    response.json(app.locals.albums)
+    const albums = app.locals.albums
+    response.json(albums)
 });
 
-// app.post('/', (req, res) => {
+app.get('/:id', (req, res) => {
+    const { id } = req.params
+    const album = app.locals.albums.find(album => album.id === id)
+    if (!album) {
+        return res.sendStatus(404)
+    }
 
-// })
+    res.status(200).json(album)
+})
+
+
+app.post('/', (req, res) => {
+    const id = date.Now()
+    const album = req.body
+    for (let requiredParameter of ['id', 'albumName', 'artist', 'releaseDate', 'genre', 'bandMembers', 'label', 'isBandTogether', 'rollingStoneReview', 'youTubeAlbumURL', 'imgURL', 'albumsSold']) {
+        if (!album[requiredParameter]) {
+            res.status(422).send({
+                error:
+                    `Expected format: {id:<String>, albumName:<String>, artist: <String>, releaseDate:<String>, genre: <String>, bandMembers: <Array>, label:<String>, isBandTogether:<Boolean>, rollingStoneReview:<String>, youTubeAlbumURL:<String>, imgURL:<String>, albumsSold:<Number>. You're missing a "${requiredParameter}" property.`
+            })
+            return
+        }
+    }
+    const { albumName, artist, releaseDate, genre, bandMembers, label, isBandTogether, rollingStoneReview, youTubeAlbumURL, imgURL, albumsSold } = album
+
+    app.locals.albums.push({ id, albumName, artist, releaseDate, genre, bandMembers, label, isBandTogether, rollingStoneReview, youTubeAlbumURL, imgURL, albumsSold })
+
+    res.status(201).json({ id, albumName, artist, releaseDate, genre, bandMembers, label, isBandTogether, rollingStoneReview, youTubeAlbumURL, imgURL, albumsSold })
+})
