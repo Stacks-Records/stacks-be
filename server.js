@@ -296,7 +296,7 @@ app.locals.albums = [
     },
 ]
 
-app.get('/', (request, response) => {
+app.get('/albums', (request, response) => {
     const albums = app.locals.albums
     response.json(albums)
 });
