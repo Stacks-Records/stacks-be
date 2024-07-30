@@ -311,22 +311,13 @@ app.get('/:id', (req, res) => {
     res.status(200).json(album)
 })
 
-
 app.post('/', (req, res) => {
-    const id = date.Now()
-    const album = req.body
-    for (let requiredParameter of ['id', 'albumName', 'artist', 'releaseDate', 'genre', 'bandMembers', 'label', 'isBandTogether', 'rollingStoneReview', 'youTubeAlbumURL', 'imgURL', 'albumsSold']) {
-        if (!album[requiredParameter]) {
-            res.status(422).send({
-                error:
-                    `Expected format: {id:<String>, albumName:<String>, artist: <String>, releaseDate:<String>, genre: <String>, bandMembers: <Array>, label:<String>, isBandTogether:<Boolean>, rollingStoneReview:<String>, youTubeAlbumURL:<String>, imgURL:<String>, albumsSold:<Number>. You're missing a "${requiredParameter}" property.`
-            })
-            return
-        }
+    const newAlbum = req.body;
+    if (!newAlbum || Object.keys(newAlbum).length === 0) {
+        return res.status(400).send({ message: 'Invalid album data' });
     }
-    const { albumName, artist, releaseDate, genre, bandMembers, label, isBandTogether, rollingStoneReview, youTubeAlbumURL, imgURL, albumsSold } = album
+    app.locals.albums.push(newAlbum);
+    res.status(201).send(newAlbum);
+});
 
-    app.locals.albums.push({ id, albumName, artist, releaseDate, genre, bandMembers, label, isBandTogether, rollingStoneReview, youTubeAlbumURL, imgURL, albumsSold })
 
-    res.status(201).json({ id, albumName, artist, releaseDate, genre, bandMembers, label, isBandTogether, rollingStoneReview, youTubeAlbumURL, imgURL, albumsSold })
-})
