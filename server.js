@@ -311,11 +311,12 @@ app.get('/:id', (req, res) => {
     res.status(200).json(album)
 })
 
-app.post('/', (req, res) => {
+app.post('/add-stack', (req, res) => {
     const newAlbum = req.body;
     if (!newAlbum || Object.keys(newAlbum).length === 0) {
         return res.status(400).send({ message: 'Invalid album data' });
     }
+    newAlbum.id = `ID-${Math.random().toString(36).substr(2, 9)}`
     app.locals.albums.push(newAlbum);
     res.status(201).send(newAlbum);
 });
