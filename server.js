@@ -321,4 +321,8 @@ app.post('/add-stack', (req, res) => {
     res.status(201).send(newAlbum);
 });
 
-
+app.delete('albums/:id', (req, res) => {
+    const albumId = req.params.id
+    albums = albums.filter(album => album.id !== albumId)
+    res.status(204).send()
+})
