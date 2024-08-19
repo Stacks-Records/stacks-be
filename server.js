@@ -26,7 +26,7 @@ app.get('/albums', async (request, res) => {
     }
 });
 
-app.get('/:id', async (req, res) => {
+app.get('/albums/:id', async (req, res) => {
     try {
         const albums = await database('albums').where('id','=',
             req.params.id).select()
