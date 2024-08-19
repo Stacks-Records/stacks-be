@@ -28,8 +28,8 @@ app.get('/albums', async (request, res) => {
 
 app.get('/:id', async (req, res) => {
     try {
-        const albums = await database('albums').select().where('id','=',
-            req.params.id)
+        const albums = await database('albums').where('id','=',
+            req.params.id).select()
             if(albums.length) {
                 res.status(200).json(albums)
             } else {
