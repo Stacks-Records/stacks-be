@@ -7,7 +7,9 @@ const database = require('knex')(configuration);
 
 
 app.use(express.json())
-app.use(cors())
+app.use(cors({
+    origin: 'https://kylemboomer.github.io/stacks/'
+}))
 
 
 app.set('port', process.env.PORT || 3000);
@@ -22,7 +24,8 @@ app.get('/albums', async (request, res) => {
         const albums = await database('albums').select()
         res.status(200).json(albums) 
     } catch(error) {
-        res.status(500).json({error})
+        console.error('Database Query Error:', error.message)
+        res.status(500).json({error:error.message})
     }
 });
 
@@ -62,8 +65,8 @@ app.post('/add-stack', (req, res) => {
     res.status(201).send(newAlbum);
 });
 
-app.delete('albums/:id', (req, res) => {
-    const albumId = req.params.id
-    albums = albums.filter(album => album.id !== albumId)
-    res.status(204).send()
+app.delete('/albums/:id', (req, res) => {
+    const albumId = req.params.id;
+    albums = albums.filter(album => album.id !== albumId);
+    res.status(204).send();
 })
