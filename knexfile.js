@@ -6,8 +6,8 @@ module.exports = {
     connection: {
       host: 'localhost',
       user: 'postgres',
-      password: 'Le()Mark812!',
-      database: 'postgres',
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
       charset: 'utf8'
     },
     migrations: {
@@ -24,11 +24,7 @@ module.exports = {
 
   production: {
     client: 'pg',
-    connection: {
-      database: process.env.DATABASE_URL,
-      user: 'username',
-      password: 'password'
-    },
+    connection:process.env.DATABASE_URL + '?ssl=true',
     pool: {
       min: 2,
       max: 10

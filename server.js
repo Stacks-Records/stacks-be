@@ -55,8 +55,16 @@ app.post('/add-stack', (req, res) => {
     res.status(201).send(newAlbum);
 });
 
-app.delete('/albums/:id', (req, res) => {
+app.delete('/albums/:id', async (req, res) => {
     const albumId = req.params.id;
-    albums = albums.filter(album => album.id !== albumId);
-    res.status(204).send();
+    try {
+        const deletedRows = await database('albums').where('id', '=', albumId).del()
+        if(deletedRows) {
+            res.status(204).send()
+        } else {
+            res.status(404).json({error: `Album with id ${albumId} not found.`})
+        }
+    } catch(error) {
+        res.status(500).json({error:error.message})
+    }
 })
