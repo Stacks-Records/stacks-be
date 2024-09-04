@@ -1,14 +1,13 @@
 const express = require('express');
 const app = express();
 const cors = require('cors')
-const environment = process.env.NODE_ENV || 'development';
 const configuration = require('./knexfile')[environment];
 const database = require('knex')(configuration);
+const port = process.env.PORT || 10000
 
 
 app.use(express.json())
 app.use(cors())
-const port = process.env.PORT || 3000
 app.set('port', port)
 app.locals.title = 'Stacks'
 
@@ -17,7 +16,7 @@ app.set('port', process.env.PORT || 3000);
 app.locals.title = 'Stacks';
 
 app.listen(port, () => {
-    console.log(`${app.locals.title} is running on http://localhost:${port}.`);
+    console.log(`${app.locals.title} is running on port ${port}.`);
 })
 
 app.get('/albums', async (request, res) => {
@@ -25,6 +24,7 @@ app.get('/albums', async (request, res) => {
         const albums = await database('albums').select()
         res.status(200).json(albums) 
     } catch(error) {
+        console.error('Database error:', error.message)
         res.status(500).json({error:error.message})
     }
 });
