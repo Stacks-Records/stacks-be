@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors')
-const configuration = require('./knexfile')[environment];
+const configuration = require('./knexfile')[process.env.NODE_ENV];
 const database = require('knex')(configuration);
 const port = process.env.PORT || 10000
 
