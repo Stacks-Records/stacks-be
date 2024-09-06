@@ -2,9 +2,10 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const { config } = require('dotenv');
+const { error } = require('console');
 const configuration = require('./knexfile.js')[process.env.NODE_ENV || 'development']
 const database = require('knex')(configuration);
-console.log('configuration', configuration) 
+console.log('configuration', configuration)
 console.log('NODE_ENV:', process.env.NODE_ENV)
 console.log(process.env.DATABASE_URL)
 const port = process.env.PORT || 10000
@@ -26,49 +27,54 @@ app.listen(port, () => {
 app.get('/albums', async (request, res) => {
     try {
         const albums = await database('albums').select()
-        res.status(200).json(albums) 
-    } catch(error) {
-        console.error('Database error:', error.message)
-        res.status(500).json({error:error.message})
+        res.status(200).json(albums)
+    } catch (error) {
+        console.error('Database error:', error)
+        res.status(500).json({ error: error.message })
     }
 });
 
 app.get('/albums/:id', async (req, res) => {
     try {
-        const albums = await database('albums').where('id','=',
+        const albums = await database('albums').where('id', '=',
             req.params.id).select()
-            if(albums.length) {
-                res.status(200).json(albums)
-            } else {
-                res.status(400).json({
-                    error:`Could not find album with id ${req.params.id}`
-                })
-            }
-    } catch(error) {
-        res.status(500).json({error})
+        if (albums.length) {
+            res.status(200).json(albums)
+        } else {
+            res.status(400).json({
+                error: `Could not find album with id ${req.params.id}`
+            })
+        }
+    } catch (error) {
+        console.error(`Error fetching album with id ${req.params.id}`, error)
+        res.status(500).json({ error: error.message })
     }
 });
 
-app.post('/add-stack', (req, res) => {
-    const newAlbum = req.body;
-    if (!newAlbum || Object.keys(newAlbum).length === 0) {
-        return res.status(400).send({ message: 'Invalid album data' });
+app.post('/add-stack', async (req, res) => {
+    const newAlbum = req.body
+    if (!newAlbum || !Object.keys(newAlbum).length) {
+        return res.status(400).send({message: 'Invalid album data.'})
     }
-    newAlbum.id = `ID-${Math.random().toString(36).substr(2, 9)}`
-    app.locals.albums.push(newAlbum);
-    res.status(201).send(newAlbum);
+    try {
+        const postedAlbum = await database('albums').insert(newAlbum).returning('*')
+        res.status(201).json(postedAlbum[0])
+    } catch(error) {
+        console.error('Error posting your record :(', error)
+        res.status(500).json({error: error.message})
+    }
 });
 
 app.delete('/albums/:id', async (req, res) => {
     const albumId = req.params.id;
     try {
         const deletedRows = await database('albums').where('id', '=', albumId).del()
-        if(deletedRows) {
+        if (deletedRows) {
             res.status(204).send()
         } else {
-            res.status(404).json({error: `Album with id ${albumId} not found.`})
+            res.status(404).json({ error: `Album with id ${albumId} not found.` })
         }
-    } catch(error) {
-        res.status(500).json({error:error.message})
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
