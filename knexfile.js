@@ -20,6 +20,17 @@ module.exports = {
 
   staging: {
     client: 'postgresql',
+    connection: process.env.DATABASE_URL,
+    pool: {
+      min:2, 
+      max:5
+    },
+    migrations:{
+      directory: __dirname + '/knex/migrations'
+    },
+    seeds: {
+      directory:__dirname + '/knex/seeds'
+    }
   },
 
   production: {
