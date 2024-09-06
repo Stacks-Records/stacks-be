@@ -1,24 +1,10 @@
 const express = require('express');
 const app = express();
-const cors = require('cors')
-const configuration = require('./knexfile')[process.env.ENVIRONMENT||'development'];
+const cors = require('cors');
+const { config } = require('dotenv');
+const configuration = require('./knexfile.js')[process.env.NODE_ENV | 'development']
 const database = require('knex')(configuration);
-console.log('database', database) 
-// const database = {
-//     client: 'pg',
-//     connection:process.env.DATABASE_URL + '?ssl=true',
-//     pool: {
-//       min: 2,
-//       max: 5
-//     },
-//     migrations: {
-//       directory: __dirname + '/knex/migrations',
-//     },
-//     seeds: {
-//       directory: __dirname + '/knex/seeds'
-//     }
-//   };
-
+console.log('configuration', configuration) 
 const port = process.env.PORT || 10000
 
 
