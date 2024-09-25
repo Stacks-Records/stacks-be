@@ -5,6 +5,8 @@ const { config } = require('dotenv');
 const { error } = require('console');
 const configuration = require('../knexfile.js')[process.env.NODE_ENV || 'development']
 const database = require('knex')(configuration);
+console.log('password', process.env.DB_PASSWORD)
+console.log('config',configuration)
 const port = process.env.PORT || 3000
 
 app.use(express.json())
