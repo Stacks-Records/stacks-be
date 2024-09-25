@@ -8,6 +8,7 @@ const database = require('knex')(configuration);
 console.log('configuration', configuration)
 console.log('NODE_ENV:', process.env.NODE_ENV)
 console.log(process.env.DATABASE_URL)
+console.log('POSTGRES_USER', process.env.POSTRGRES_USER) 
 const port = process.env.PORT || 3000
 
 app.get("/", (req, res) => res.send("Express on Vercel"));
