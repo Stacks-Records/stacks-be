@@ -3,14 +3,14 @@ const app = express();
 const cors = require('cors');
 const { config } = require('dotenv');
 const { error } = require('console');
-const configuration = require('./knexfile.js')[process.env.NODE_ENV || 'development']
+const configuration = require('../knexfile.js')[process.env.NODE_ENV || 'development']
 const database = require('knex')(configuration);
 console.log('configuration', configuration)
 console.log('NODE_ENV:', process.env.NODE_ENV)
 console.log(process.env.DATABASE_URL)
-const port = process.env.PORT || 10000
+const port = process.env.PORT || 3000
 
-
+app.get("/", (req, res) => res.send("Express on Vercel"));
 app.use(express.json())
 app.use(cors({
     origin:'*',
