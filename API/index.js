@@ -2,31 +2,34 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const { config } = require('dotenv');
-const { error } = require('console');
+require('dotenv').config();
+
 const configuration = require('../knexfile.js')[process.env.NODE_ENV || 'development']
 const database = require('knex')(configuration);
-console.log('password', process.env.DB_PASSWORD)
-console.log('config',configuration)
-const port = process.env.PORT || 3000
+const { auth } = require('express-oauth2-jwt-bearer');
 
+const port = process.env.PORT || 3001
+const jwtCheck = auth({
+    audience: 'https://stacksusers/api',
+    issuerBaseURL: 'https://dev-gniv73lrty2i6mv2.us.auth0.com/',
+    tokenSigningAlg: 'RS256'
+})
 app.use(express.json())
+app.use(jwtCheck);
 app.use(cors({
     origin:'*',
     methods:['GET', 'POST', 'DELETE', 'PUT'],
     allowedHeaders: ['Content-Type']
 }))
-app.set('port', port)
 app.locals.title = 'Stacks'
 app.get("/", (req, res) => res.send("Express on Vercel"));
 
-
 app.set('port', process.env.PORT);
-app.locals.title = 'Stacks';
-
-app.listen(port, () => {
-    console.log(`${app.locals.title} is running on port ${port}.`);
-})
-
+app.listen(port)
+console.log('Running on port ', port);
+app.get('/authorized', function (req, res) {
+    res.send('Secured Resource');
+});
 app.get('/albums', async (request, res) => {
     try {
         const albums = await database('albums').select()
@@ -81,5 +84,36 @@ app.delete('/albums/:id', async (req, res) => {
         res.status(500).json({ error: error.message })
     }
 })
+app.get('/api/v1/users', async (req, res)=> {
+    try {
+        const users = await database('users').select('*')
+        if (!users.length) {
+            res.status(200).json('No users found')
+        }
+        res.status(200).json(users)
+    }
+    catch (error) {
+        res.status(500).json({error:'Could not fetch users'})
+    }
+})
 
-module.exports = app 
+app.post('/api/v1/users', async (req,res) => {
+    const { name, email} = req.body;
+    try {
+        const users = await database('users').select('email')
+        const foundUser = users.find(user => {
+            user.name === name && user.email === email
+        })
+        if (!foundUser) {
+            const user = {name, email}
+            const newUser = database('users').insert(user);
+            res.status(201).json(newUser)
+        }
+    }
+    catch (error) {
+        res.status(500).json({error: 'Could not add new user'})
+    }
+})
+
+
+module.exports = app

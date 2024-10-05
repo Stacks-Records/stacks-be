@@ -16,7 +16,6 @@ exports.up = function (knex) {
         table.integer('albumsSold')
         table.string('youTubeAlbumURL')
         table.string('imgURL')
-
     })
 };
 
