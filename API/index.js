@@ -1,29 +1,29 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
-const { config } = require('dotenv');
-require('dotenv').config();
+const path = require('path')
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') })
 
-const configuration = require('../knexfile.js')[process.env.NODE_ENV || 'development']
+const configuration = require('../knexfile.js')[process.env.NODE_ENV|| 'development']
 const database = require('knex')(configuration);
 const { auth } = require('express-oauth2-jwt-bearer');
 
 const port = process.env.PORT || 3001
+
 const jwtCheck = auth({
-    audience: 'https://stacksusers/api',
-    issuerBaseURL: 'https://dev-gniv73lrty2i6mv2.us.auth0.com/',
-    tokenSigningAlg: 'RS256'
+    audience: process.env.AUDIENCE,
+    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
+    tokenSigningAlg: process.env.TOKENSIGNINGALG
 })
 app.use(express.json())
 app.use(jwtCheck);
 app.use(cors({
     origin:'*',
     methods:['GET', 'POST', 'DELETE', 'PUT'],
-    allowedHeaders: ['Content-Type']
+    allowedHeaders: ['Content-Type','Authorization'],
 }))
 app.locals.title = 'Stacks'
 app.get("/", (req, res) => res.send("Express on Vercel"));
-
 app.set('port', process.env.PORT);
 app.listen(port)
 console.log('Running on port ', port);
@@ -109,6 +109,7 @@ app.post('/api/v1/users', async (req,res) => {
             const newUser = database('users').insert(user);
             res.status(201).json(newUser)
         }
+        res.status(201).json('User already seeded')
     }
     catch (error) {
         res.status(500).json({error: 'Could not add new user'})
