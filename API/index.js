@@ -7,30 +7,33 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') })
 const configuration = require('../knexfile.js')[process.env.NODE_ENV|| 'development']
 const database = require('knex')(configuration);
 const { auth } = require('express-oauth2-jwt-bearer');
-
-const port = process.env.PORT || 3001
-
-const jwtCheck = auth({
-    audience: process.env.AUDIENCE,
-    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
-    tokenSigningAlg: process.env.TOKENSIGNINGALG
-})
-app.use(express.json())
-app.use(jwtCheck);
 app.use(cors({
     origin:'*',
     methods:['GET', 'POST', 'DELETE', 'PUT'],
     allowedHeaders: ['Content-Type','Authorization'],
+    credential: true
 }))
+
+const port = process.env.PORT || 3001
+
+const checkJwt = auth({
+    audience: process.env.AUDIENCE,
+    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
+  });
+  
+app.use(express.json())
+app.use(checkJwt);
+
 app.locals.title = 'Stacks'
 app.get("/", (req, res) => res.send("Express on Vercel"));
 app.set('port', process.env.PORT);
-app.listen(port)
-console.log('Running on port ', port);
-app.get('/authorized', function (req, res) {
-    res.send('Secured Resource');
-});
+app.listen(port, () => {
+    console.log(`Listening on port: ${port}`)
+    console.log(`Current environment: ${process.env.NODE_ENV}`)
+})
+
 app.get('/albums', async (request, res) => {
+
     try {
         const albums = await database('albums').select()
         res.status(200).json(albums)
