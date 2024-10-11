@@ -16,13 +16,13 @@ app.use(cors({
 
 const port = process.env.PORT || 3001
 
-const checkJwt = auth({
-    audience: process.env.AUDIENCE,
-    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
-  });
+// const checkJwt = auth({
+//     audience: process.env.AUDIENCE,
+//     issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
+//   });
   
 app.use(express.json())
-app.use(checkJwt);
+// app.use(checkJwt);
 
 app.locals.title = 'Stacks'
 app.get("/", (req, res) => res.send("Express on Vercel"));
@@ -93,7 +93,10 @@ app.get('/api/v1/users', async (req, res)=> {
         if (!users.length) {
             res.status(200).json('No users found')
         }
-        res.status(200).json(users)
+        else {
+            res.status(200).json(users)
+        }
+        
     }
     catch (error) {
         res.status(500).json({error:'Could not fetch users'})
@@ -101,18 +104,21 @@ app.get('/api/v1/users', async (req, res)=> {
 })
 
 app.post('/api/v1/users', async (req,res) => {
-    const { name, email} = req.body;
     try {
-        const users = await database('users').select('email')
+        const { name, email} = req.body;
+        const users = await database('users').select('*')
         const foundUser = users.find(user => {
-            user.name === name && user.email === email
+            return user.email === email
         })
-        if (!foundUser) {
+        if (foundUser === undefined) {
             const user = {name, email}
-            const newUser = database('users').insert(user);
-            res.status(201).json(newUser)
+            await database('users').insert({email: email, username: name, mystack: []});
+
+            res.status(201).json('User seeded')
         }
-        res.status(201).json('User already seeded')
+        else {
+            res.status(201).json('User already seeded')
+        }
     }
     catch (error) {
         res.status(500).json({error: 'Could not add new user'})
