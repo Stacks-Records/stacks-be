@@ -28,7 +28,7 @@ const checkJwt = auth({
   
 app.use(express.json())
 // app.use(checkJwt);
-
+console.log(configuration)
 app.locals.title = 'Stacks'
 
 app.get("/", (req, res) => res.send("Express on Vercel"));
@@ -38,7 +38,7 @@ app.listen(port, () => {
     console.log(`Current environment: ${process.env.NODE_ENV}`)
 })
 
-app.get('/albums', async (request, res) => {
+app.get('/albums', checkJwt, async (request, res) => {
 
     try {
         const albums = await database('albums').select()
@@ -109,7 +109,7 @@ app.get('/api/v1/users', async (req, res)=> {
     }
 })
 
-app.post('/api/v1/users', checkJwt, async (req,res) => {
+app.post('/api/v1/users', async (req,res) => {
     try {
         const { name, email} = req.body;
         const users = await database('users').select('*')
@@ -140,13 +140,13 @@ app.patch('/api/v1/stacks', checkJwt, async (req,res) => {
         const userID = user[0].id
         const foundRecord = user[0].mystack.find(album => album.id === newAlbum.id)
         if (!foundRecord) {
-            await database('users')
+            const updatedUser = await database('users')
             .where('id', userID)
             .update({
                 mystack: database.raw('array_append(mystack, ?::jsonb)', [JSON.stringify(newAlbum)])
             })
             .returning('*');
-            res.status(201).json('Album added to stack')
+            res.status(201).json({message: 'Album added to stack', user: updatedUser[0]})
         }
         else {
             res.status(200).json('Album already in stack')
@@ -170,7 +170,7 @@ app.patch('/api/v1/stacks/delete', async (req,res) => {
                 mystack: database.raw('array_remove(mystack, ?::jsonb)', [JSON.stringify(albumToDelete)])
             })
             .returning('*');
-            res.status(201).json({message: 'Album removed from stack', user: updatedUser[0]})
+            res.status(201).json({message: 'Album removed from stack', user: updatedUser[0].mystack})
         }
         else {
             res.status(404).json({message: 'Album not found in stack'})
@@ -190,7 +190,7 @@ app.get('/api/v1/stacks', async (req,res) => {
             res.status(201).json('No stack to display')
         }
         else {
-            res.status(201).json(albums)
+            res.status(201).json(albums[0].mystack)
         }
     }
     catch (error) {

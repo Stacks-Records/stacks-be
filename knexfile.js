@@ -5,11 +5,12 @@ module.exports = {
   development: {
     client: 'pg',
     connection: {
-      host: 'localhost',
-      user: 'postgres',
-      password: 'ehddnr05',
-      database: 'postgres',
-      charset: 'utf8'
+      host: 'ep-sweet-surf-a4hthhlk-pooler.us-east-1.aws.neon.tech',
+      user: 'default',
+      password: 'oB89DRfkgOyd',
+      database: 'verceldb',
+      charset: 'utf8',
+      ssl: 'true'
     },
     migrations: {
       directory: __dirname + '/knex/migrations',
