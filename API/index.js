@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const path = require('path')
+const { v4: uuidv4 } = require('uuid')
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') })
 
 const configuration = require('../knexfile.js')[process.env.NODE_ENV|| 'development']
@@ -27,8 +28,7 @@ const checkJwt = auth({
   });
   
 app.use(express.json())
-// app.use(checkJwt);
-console.log(configuration)
+app.use(checkJwt);
 app.locals.title = 'Stacks'
 
 app.get("/", (req, res) => res.send("Express on Vercel"));
@@ -68,31 +68,32 @@ app.get('/albums/:id', async (req, res) => {
 
 app.post('/add-stack', async (req, res) => {
     const newAlbum = req.body
+    const id = uuidv4()
+    const postAlbum = {id, ...newAlbum}
     if (!newAlbum || !Object.keys(newAlbum).length) {
         return res.status(400).send({message: 'Invalid album data.'})
     }
     try {
-        const postedAlbum = await database('albums').insert(newAlbum).returning('*')
+        const postedAlbum = await database('albums').insert(postAlbum).returning('*')
         res.status(201).json(postedAlbum[0])
     } catch(error) {
         console.error('Error posting your record :(', error)
         res.status(500).json({error: error.message})
     }
 });
-
-app.delete('/albums/:id', async (req, res) => {
-    const albumId = req.params.id;
-    try {
-        const deletedRows = await database('albums').where('id', '=', albumId).del()
-        if (deletedRows) {
-            res.status(204).send()
-        } else {
-            res.status(404).json({ error: `Album with id ${albumId} not found.` })
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
-})
+// app.delete('/albums/:id', async (req, res) => {
+//     const albumId = req.params.id;
+//     try {
+//         const deletedRows = await database('albums').where('id', '=', albumId).del()
+//         if (deletedRows) {
+//             res.status(204).send()
+//         } else {
+//             res.status(404).json({ error: `Album with id ${albumId} not found.` })
+//         }
+//     } catch (error) {
+//         res.status(500).json({ error: error.message })
+//     }
+// })
 app.get('/api/v1/users', async (req, res)=> {
     try {
         const users = await database('users').select('*')

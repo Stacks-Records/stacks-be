@@ -1,16 +1,14 @@
-
-require('dotenv').config()
+require('dotenv').config();
 
 module.exports = {
   development: {
     client: 'pg',
     connection: {
-      host: 'ep-sweet-surf-a4hthhlk-pooler.us-east-1.aws.neon.tech',
-      user: 'default',
-      password: 'oB89DRfkgOyd',
-      database: 'verceldb',
-      charset: 'utf8',
-      ssl: 'true'
+      host: 'localhost',
+      user: 'postgres',
+      password: 'ehddnr05',
+      database: 'postgres',
+      charset: 'utf8'
     },
     migrations: {
       directory: __dirname + '/knex/migrations',
@@ -37,7 +35,14 @@ module.exports = {
 
   production: {
     client: 'pg',
-    connection: process.env.POSTGRES_URL,
+    connection: {
+      host: process.env.POSTGRES_HOST,
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      database: process.env.POSTGRES_DATABASE,
+      charset: 'utf8',
+      ssl: 'true'
+    },
     pool: {
       min: 2,
       max: 5
