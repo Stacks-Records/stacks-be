@@ -9,13 +9,17 @@
 ## Database Setup
 1. Install knex globally by running `npm install knex -g` and then run `npm install knex --save` to use `knex` CLI commands
 2. Install pg module `npm install pg --save` to connect to PostgreSQL
-3. In the root directory, navigate to `knexfile.js` and configure your environment variables
+3. In the root directory, navigate to `knexfile.js` and configure your environment connection
 4. To migrate and seed data, run `knex migrate:latest && knex seed:run`
 
 ## Running Local Server
 
 1. Navigate to `/api` folder from the root directory
 2. Run `node index.js` to start the server
+
+## Technologies Used
+
+- Express.js, PostgreSQL, Knex.js, Auth0
 
 ## Endpoints
 
