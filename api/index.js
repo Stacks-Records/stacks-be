@@ -15,21 +15,26 @@ const { fetchAlbumArticle } = require('./wikipedia');
 const { enrichAlbum } = require('./enrich');
 const { parseGenres, canonicalizeName, genreSlug } = require('./genres');
 
-// Sets an album's genres from a list of already-discrete genre names and (re)writes
-// the album_genres links. This is the create-or-attach core: each name is normalized
-// and matched by slug to an existing genre, or inserted as a NEW user-contributed
-// genre (is_canonical defaults to false). Idempotent — it clears the album's existing
-// links and inserts the current set, so it's safe on both create and update.
+// Sets an album's genres from a list of genre names and (re)writes the album_genres
+// links. This is the create-or-attach core: each name is normalized and matched by
+// slug to an existing genre, or inserted as a NEW user-contributed genre (is_canonical
+// defaults to false). Idempotent — it clears the album's existing links and inserts
+// the current set, so it's safe on both create and update.
 //
-// Callers supply discrete names: user submissions pass their genres[] array (one
-// genre per element); the cron passes parseGenres(rawString) to split the compound
-// Discogs CSV string first. Never run a compound string through here directly.
+// Each entry is run through parseGenres first in case a caller handed us a compound
+// string (e.g. a genres[] element of "Blues, Rock" from a UI that didn't split it, or
+// a raw CSV genre string) — parseGenres pulls out the recognized canonical/alias names
+// it contains. If none match (a free-form custom genre like "Shoegaze"), we fall back
+// to the trimmed raw string as a single discrete name.
 const setAlbumGenres = async (albumId, names) => {
     // Normalize + dedupe by slug so "Shoegaze"/"shoegaze" collapse to one genre.
     const bySlug = new Map();
     for (const raw of names || []) {
-        const slug = genreSlug(raw);
-        if (slug && !bySlug.has(slug)) bySlug.set(slug, canonicalizeName(raw));
+        const candidates = parseGenres(raw);
+        for (const candidate of candidates.length ? candidates : [raw]) {
+            const slug = genreSlug(candidate);
+            if (slug && !bySlug.has(slug)) bySlug.set(slug, canonicalizeName(candidate));
+        }
     }
 
     await database('album_genres').where('album_id', albumId).del();
@@ -45,6 +50,20 @@ const setAlbumGenres = async (albumId, names) => {
     await database('album_genres')
         .insert(rows.map(r => ({ album_id: albumId, genre_id: r.id })))
         .onConflict(['album_id', 'genre_id']).ignore();
+};
+
+// Reads an album's current genres straight from the join table, in the same
+// { name, isCanonical } shape used by /api/v1/genres and /api/v1/albums/by-genre.
+// Callers use this after setAlbumGenres so a create/update response reflects what's
+// actually linked (including any slug-based dedup against an existing genre), not
+// just an echo of the raw input.
+const getAlbumGenres = async (albumId) => {
+    const rows = await database('genres')
+        .join('album_genres', 'genres.id', 'album_genres.genre_id')
+        .where('album_genres.album_id', albumId)
+        .select('genres.name', 'genres.is_canonical')
+        .orderBy('genres.name');
+    return rows.map(r => ({ name: r.name, isCanonical: r.is_canonical }));
 };
 
 database.on('query', queryData => {
@@ -181,8 +200,19 @@ app.get('/albums', async (request, res) => {
             query = query.orderBy(`albums.${sortBy}`, dir);
         }
 
-        // Select only album columns so the join tables don't leak into the response.
-        const albums = await query.select('albums.*')
+        // Select album columns plus a per-row genres array from a correlated subquery
+        // (its own `ag`/`g` aliases, scoped to the subquery) so every album carries its
+        // full genre list in one round trip — independent of the `?genre=` filter join
+        // above, which only constrains *which* albums match, not what this returns.
+        const albums = await query.select(
+            'albums.*',
+            database.raw(`(
+                SELECT COALESCE(json_agg(json_build_object('name', g.name, 'isCanonical', g.is_canonical) ORDER BY g.name), '[]'::json)
+                FROM album_genres ag
+                JOIN genres g ON g.id = ag.genre_id
+                WHERE ag.album_id = albums.id
+            ) AS genres`)
+        )
         res.status(200).json(albums)
     } catch (error) {
         console.error('Database error:', error)
@@ -195,6 +225,7 @@ app.get('/albums/:id', async (req, res) => {
         const albums = await database('albums').where('id', '=',
             req.params.id).select()
         if (albums.length) {
+            albums[0].genres = await getAlbumGenres(req.params.id);
             res.status(200).json(albums)
         } else {
             res.status(400).json({
@@ -291,6 +322,7 @@ app.post('/add-stack', checkJwt, requirePermission('create_album'), async (req, 
             .insert({ ...albumData, id: randomUUID(), created_by: req.auth.sub })
             .returning('*')
         await setAlbumGenres(postedAlbum[0].id, genreNames)
+        postedAlbum[0].genres = await getAlbumGenres(postedAlbum[0].id)
         res.status(201).json(postedAlbum[0])
     } catch (error) {
         console.error('Error posting your record :(', error)
@@ -398,6 +430,7 @@ app.patch('/albums/:id', checkJwt, async (req, res) => {
         } else if (Object.prototype.hasOwnProperty.call(updates, 'genre')) {
             await setAlbumGenres(albumId, parseGenres(updated[0].genre));
         }
+        updated[0].genres = await getAlbumGenres(albumId);
         res.status(200).json(updated[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
