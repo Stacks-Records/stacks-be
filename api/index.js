@@ -396,7 +396,7 @@ app.patch('/albums/:id', checkJwt, async (req, res) => {
         if (genres?.length) {
             await setAlbumGenres(albumId, genres);
         } else if (Object.prototype.hasOwnProperty.call(updates, 'genre')) {
-            await setAlbumGenres(albumId, updated[0].genre ? [updated[0].genre] : []);
+            await setAlbumGenres(albumId, parseGenres(updated[0].genre));
         }
         res.status(200).json(updated[0]);
     } catch (error) {
