@@ -169,14 +169,23 @@ app.get('/albums', async (request, res) => {
         const { sortBy, order, search, genre, ...filters } = request.query;
         let query = database('albums');
 
-        // Genre now lives in the join table, so ?genre=Rock filters via album_genres
-        // against the canonical genre name. Columns are qualified because the join
-        // brings ambiguous names (genres.name etc.) into scope.
-        if (genre) {
-            query = query
-                .join('album_genres', 'albums.id', 'album_genres.album_id')
-                .join('genres', 'genres.id', 'album_genres.genre_id')
-                .where('genres.name', genre);
+        // Genre now lives in the join table. ?genre=Rock (single), repeated
+        // ?genre=Rock&genre=Pop (Express/qs already arrays repeated keys), and a
+        // comma-joined ?genre=Rock,Pop are all accepted and OR'd together — an album
+        // matching any selected genre is included. A subquery (not a join on the
+        // outer query) so an album matching more than one selected genre still comes
+        // back as a single row, with no DISTINCT needed.
+        const genreList = [].concat(genre ?? [])
+            .flatMap(g => g.split(','))
+            .map(g => g.trim())
+            .filter(Boolean);
+        if (genreList.length) {
+            query = query.whereIn('albums.id', function () {
+                this.select('album_genres.album_id')
+                    .from('album_genres')
+                    .join('genres', 'genres.id', 'album_genres.genre_id')
+                    .whereIn('genres.name', genreList);
+            });
         }
 
         // Exact-match filters, e.g. ?artist=Pink Floyd
@@ -202,8 +211,8 @@ app.get('/albums', async (request, res) => {
 
         // Select album columns plus a per-row genres array from a correlated subquery
         // (its own `ag`/`g` aliases, scoped to the subquery) so every album carries its
-        // full genre list in one round trip — independent of the `?genre=` filter join
-        // above, which only constrains *which* albums match, not what this returns.
+        // full genre list in one round trip — independent of the `?genre=` filter above,
+        // which only constrains *which* albums match, not what this returns.
         const albums = await query.select(
             'albums.*',
             database.raw(`(
