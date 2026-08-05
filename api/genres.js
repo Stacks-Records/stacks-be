@@ -7,6 +7,9 @@
 // themselves ("Folk, World, & Country", "Funk / Soul", "Stage & Screen"), so a
 // naive split(',') shreds them. Instead we match known canonical names out of the
 // raw string, longest-first, so the multi-word names win before their fragments.
+// Whatever text is left over after pulling out recognized names is comma-split and
+// kept as user-contributed custom genres, rather than silently discarded — so
+// e.g. "Rock, Shoegaze" keeps both instead of dropping the unrecognized one.
 //
 // This is the single source of truth for what genres exist. To add/rename a genre,
 // edit CANONICAL_GENRES (and GENRE_ALIASES for legacy spellings) — nothing else.
@@ -81,8 +84,11 @@ function genreSlug(raw) {
 }
 
 // raw: the album's `genre` column value, possibly null/empty.
-// Returns an ordered, de-duplicated array of canonical genre names. Unknown text
-// yields []; callers decide how to handle an album with no recognized genre.
+// Returns an ordered, de-duplicated array of genre names: recognized canonical
+// names first (in the order they appear in raw), followed by any leftover
+// comma-separated text as custom genre names. A purely unrecognized string (e.g.
+// "Shoegaze") still yields itself, not []; callers rely on this to preserve
+// genres rather than dropping them when nothing canonical matches.
 function parseGenres(raw) {
     if (!raw || typeof raw !== 'string') return [];
     // Collapse all whitespace runs to single spaces. JS \s includes the U+00A0
@@ -91,13 +97,40 @@ function parseGenres(raw) {
 
     const seen = new Set();
     const out = [];
+    const matchedSpans = [];
     for (const match of normalized.matchAll(GENRE_REGEX)) {
         const canonical = lookup.get(match[0].toLowerCase());
-        if (canonical && !seen.has(canonical)) {
+        if (!canonical) continue;
+        matchedSpans.push([match.index, match.index + match[0].length]);
+        if (!seen.has(canonical)) {
             seen.add(canonical);
             out.push(canonical);
         }
     }
+
+    // Strip out the recognized spans; whatever remains is free-form text the
+    // caller typed alongside (or instead of) a known genre — e.g. the "Shoegaze"
+    // in "Rock, Shoegaze", or the whole string if nothing canonical matched at all.
+    let remainder = '';
+    let cursor = 0;
+    for (const [start, end] of matchedSpans) {
+        remainder += normalized.slice(cursor, start);
+        cursor = end;
+    }
+    remainder += normalized.slice(cursor);
+
+    // Require at least one letter/digit so leftover punctuation or stray encoding
+    // artifacts (the source CSV has a few, e.g. a mangled byte glued to a comma)
+    // don't get promoted into bogus genres.
+    const hasContent = /[\p{L}\p{N}]/u;
+    for (const piece of remainder.split(',')) {
+        const cleaned = canonicalizeName(piece);
+        if (cleaned && hasContent.test(cleaned) && !seen.has(cleaned)) {
+            seen.add(cleaned);
+            out.push(cleaned);
+        }
+    }
+
     return out;
 }
 
