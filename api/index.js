@@ -162,6 +162,10 @@ app.get('/api/v1/users/me', checkJwt, async (req, res) => {
 const ALBUM_SORTABLE = ['albumName', 'artist', 'albumsSold', 'created_at', 'rollingStoneReview'];
 // `genre` is handled separately via the album_genres join, not as a column filter.
 const ALBUM_FILTERABLE = ['artist', 'label', 'isBandTogether'];
+// Pagination is opt-in: only applied when `page` is a valid positive integer,
+// so every existing caller that omits it keeps getting the full array.
+const ALBUM_PAGE_SIZE_DEFAULT = 40;
+const ALBUM_PAGE_SIZE_MAX = 100;
 
 app.get('/albums', async (request, res) => {
 
@@ -207,6 +211,16 @@ app.get('/albums', async (request, res) => {
         if (sortBy && ALBUM_SORTABLE.includes(sortBy)) {
             const dir = order === 'desc' ? 'desc' : 'asc';
             query = query.orderBy(`albums.${sortBy}`, dir);
+        }
+
+        // Pagination, e.g. ?page=2&limit=24. An absent/non-numeric/non-positive
+        // page is treated as "no pagination requested", not an error, so the
+        // response stays a full array for every caller that doesn't opt in.
+        const rawPage = parseInt(request.query.page, 10);
+        if (Number.isInteger(rawPage) && rawPage >= 1) {
+            const rawLimit = parseInt(request.query.limit, 10);
+            const limit = Math.min(Math.max(Number.isInteger(rawLimit) ? rawLimit : ALBUM_PAGE_SIZE_DEFAULT, 1), ALBUM_PAGE_SIZE_MAX);
+            query = query.limit(limit).offset((rawPage - 1) * limit);
         }
 
         // Select album columns plus a per-row genres array from a correlated subquery
