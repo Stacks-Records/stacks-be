@@ -8,7 +8,7 @@ const configuration = require('../knexfile.js')[process.env.NODE_ENV || 'develop
 const database = require('knex')(configuration);
 const { auth } = require('express-oauth2-jwt-bearer');
 const { hasPermission, canPerformAction, PERMISSIONS, USER_ROLES, resolveRole } = require('./permissions');
-const { albumSchema } = require('./validation');
+const { albumSchema, preferencesSchema } = require('./validation');
 const { randomUUID } = require('node:crypto');
 const { loadAlbumList } = require('./albumList');
 const { fetchAlbumArticle } = require('./wikipedia');
@@ -147,6 +147,50 @@ app.get('/api/v1/users/me', checkJwt, async (req, res) => {
                 .returning('*');
         }
         res.status(200).json({ role: resolveRole(email, user.role) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Sort/filter choices and carousel-vs-grid view state, scoped to the
+// authenticated user so they follow the user across devices/browsers.
+// No row yet just means no preferences have been saved - default to {}
+// rather than auto-provisioning on read.
+app.get('/api/v1/users/me/preferences', checkJwt, async (req, res) => {
+    try {
+        const email = getAuthEmail(req);
+        if (!email) return res.status(400).json({ error: 'Authenticated email required.' });
+        const user = await database('users').where('email', email).first();
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+
+        const row = await database('user_preferences').where('user_id', user.id).first();
+        res.status(200).json({ preferences: row?.preferences || {} });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Full replace of the preferences blob (not a merge) - the frontend sends its
+// complete current state, so this stays a straightforward upsert.
+app.put('/api/v1/users/me/preferences', checkJwt, async (req, res) => {
+    try {
+        const email = getAuthEmail(req);
+        if (!email) return res.status(400).json({ error: 'Authenticated email required.' });
+        const user = await database('users').where('email', email).first();
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+
+        const parsed = preferencesSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({ error: parsed.error.issues.map(i => i.message).join(', ') });
+        }
+
+        const [row] = await database('user_preferences')
+            .insert({ user_id: user.id, preferences: parsed.data })
+            .onConflict('user_id')
+            .merge({ preferences: parsed.data, updated_at: database.fn.now() })
+            .returning('*');
+
+        res.status(200).json({ preferences: row.preferences });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
