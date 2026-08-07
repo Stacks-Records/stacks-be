@@ -42,4 +42,15 @@ const albumSchema = z.object({
     { message: 'at least one genre is required (genre or genres[])', path: ['genre'] }
 );
 
-module.exports = { albumSchema };
+// The frontend owns the actual preference keys (sortBy, viewMode, filters, ...)
+// and those will keep changing, so this only enforces the payload's shape and
+// a size cap rather than a specific set of fields.
+const preferencesSchema = z.custom(
+    (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
+    { message: 'preferences must be a JSON object' }
+).refine(
+    (obj) => JSON.stringify(obj).length <= 10_000,
+    { message: 'preferences payload is too large (max 10KB)' }
+);
+
+module.exports = { albumSchema, preferencesSchema };
