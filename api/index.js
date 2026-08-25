@@ -138,14 +138,13 @@ app.get('/api/v1/users/me', checkJwt, async (req, res) => {
         const email = getAuthEmail(req);
         if (!email) return res.status(400).json({ error: 'Authenticated email required.' });
         // Auto-provision on first authenticated request: the user exists in Auth0
-        // but may not have a row here yet. Create one (role defaults to 'user');
-        // ADMIN_EMAILS still elevates via resolveRole below.
-        let user = await database('users').where('email', email).first();
-        if (!user) {
-            [user] = await database('users')
-                .insert({ email, username: email.split('@')[0], mystack: [] })
-                .returning('*');
-        }
+        // but may not have a row here yet. Upsert on the unique email column so
+        // concurrent first-login requests can't race into two rows for one email
+        // (role defaults to 'user'; ADMIN_EMAILS still elevates via resolveRole below).
+        await database('users')
+            .insert({ email, username: email.split('@')[0], mystack: [] })
+            .onConflict('email').ignore();
+        const user = await database('users').where('email', email).first();
         res.status(200).json({ role: resolveRole(email, user.role) });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -550,7 +549,7 @@ app.get('/api/v1/users', checkJwt, requirePermission('manage_users'), async (req
         }
 
     }
-    catch (error) {
+    catch {
         res.status(500).json({ error: 'Could not fetch users' })
     }
 })
@@ -558,21 +557,14 @@ app.get('/api/v1/users', checkJwt, requirePermission('manage_users'), async (req
 app.post('/api/v1/users', checkJwt, async (req, res) => {
     try {
         const { name, email } = req.body;
-        const users = await database('users').select('*')
-        const foundUser = users.find(user => {
-            return user.email === email
-        })
-        if (foundUser === undefined) {
-            const user = { name, email }
-            await database('users').insert({ email: email, username: name, mystack: [] });
+        const inserted = await database('users')
+            .insert({ email, username: name, mystack: [] })
+            .onConflict('email').ignore()
+            .returning('id');
 
-            res.status(201).json('User seeded')
-        }
-        else {
-            res.status(201).json('User already seeded')
-        }
+        res.status(201).json(inserted.length ? 'User seeded' : 'User already seeded')
     }
-    catch (error) {
+    catch {
         res.status(500).json({ error: 'Could not add new user' })
     }
 })
@@ -593,7 +585,7 @@ app.patch('/api/v1/users/:id/role', checkJwt, requirePermission('manage_users'),
             return res.status(404).json({ error: `User with id ${id} not found.` });
         }
         res.status(200).json(updated[0]);
-    } catch (error) {
+    } catch {
         res.status(500).json({ error: 'Could not update user role.' });
     }
 })
@@ -679,7 +671,7 @@ app.get('/api/v1/stacks', checkJwt, async (req, res) => {
             res.status(201).json(albums)
         }
     }
-    catch (error) {
+    catch {
         res.status(500).json({ error: 'Could not get user stack' })
     }
 })
