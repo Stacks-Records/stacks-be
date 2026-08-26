@@ -14,6 +14,7 @@ const { loadAlbumList } = require('./albumList');
 const { fetchAlbumArticle } = require('./wikipedia');
 const { enrichAlbum } = require('./enrich');
 const { parseGenres, canonicalizeName, genreSlug } = require('./genres');
+const rateLimit = require('express-rate-limit');
 
 // Sets an album's genres from a list of genre names and (re)writes the album_genres
 // links. This is the create-or-attach core: each name is normalized and matched by
@@ -77,6 +78,17 @@ app.use(cors({
     credential: true
 }))
 
+// Every route below hits the database, so an unrestricted client can hammer it into
+// unresponsiveness (CodeQL js/missing-rate-limiting). Caps requests per IP; on Vercel
+// each warm serverless instance tracks its own count (no shared store across
+// instances/regions), so this is a per-instance backstop, not a hard global ceiling.
+app.use(rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+}));
+
 const port = process.env.PORT || 3001
 
 const checkJwt = auth({
@@ -84,10 +96,18 @@ const checkJwt = auth({
     issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
 });
 
-// Identity comes from the verified JWT, never a client-supplied header — a header
-// can be spoofed to any value, which would let any valid token claim an admin
-// email. The header is only a last-resort fallback for tokens lacking the claim.
-const getAuthEmail = (req) => req.auth?.payload?.email || req.auth?.email || req.headers.email;
+// Identity comes only from a JWT claim proven to belong to the caller. Users are
+// keyed by email (see the dedupe migration), so trusting an unverified email would
+// let a second identity (e.g. a "Sign Up" account) silently inherit an existing
+// account just by claiming someone else's address — email_verified is Auth0's
+// confirmation that the identity provider actually checked that. A client-supplied
+// `Email` header can never carry that proof, so it is never trusted as an identity
+// source here, verified or not.
+const getAuthEmail = (req) => {
+    const email = req.auth?.payload?.email || req.auth?.email;
+    const emailVerified = req.auth?.payload?.email_verified ?? req.auth?.email_verified;
+    return email && emailVerified === true ? email : undefined;
+};
 
 const requirePermission = (permission) => {
     return async (req, res, next) => {
@@ -138,14 +158,13 @@ app.get('/api/v1/users/me', checkJwt, async (req, res) => {
         const email = getAuthEmail(req);
         if (!email) return res.status(400).json({ error: 'Authenticated email required.' });
         // Auto-provision on first authenticated request: the user exists in Auth0
-        // but may not have a row here yet. Create one (role defaults to 'user');
-        // ADMIN_EMAILS still elevates via resolveRole below.
-        let user = await database('users').where('email', email).first();
-        if (!user) {
-            [user] = await database('users')
-                .insert({ email, username: email.split('@')[0], mystack: [] })
-                .returning('*');
-        }
+        // but may not have a row here yet. Upsert on the unique email column so
+        // concurrent first-login requests can't race into two rows for one email
+        // (role defaults to 'user'; ADMIN_EMAILS still elevates via resolveRole below).
+        await database('users')
+            .insert({ email, username: email.split('@')[0], mystack: [] })
+            .onConflict('email').ignore();
+        const user = await database('users').where('email', email).first();
         res.status(200).json({ role: resolveRole(email, user.role) });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -550,7 +569,7 @@ app.get('/api/v1/users', checkJwt, requirePermission('manage_users'), async (req
         }
 
     }
-    catch (error) {
+    catch {
         res.status(500).json({ error: 'Could not fetch users' })
     }
 })
@@ -558,21 +577,14 @@ app.get('/api/v1/users', checkJwt, requirePermission('manage_users'), async (req
 app.post('/api/v1/users', checkJwt, async (req, res) => {
     try {
         const { name, email } = req.body;
-        const users = await database('users').select('*')
-        const foundUser = users.find(user => {
-            return user.email === email
-        })
-        if (foundUser === undefined) {
-            const user = { name, email }
-            await database('users').insert({ email: email, username: name, mystack: [] });
+        const inserted = await database('users')
+            .insert({ email, username: name, mystack: [] })
+            .onConflict('email').ignore()
+            .returning('id');
 
-            res.status(201).json('User seeded')
-        }
-        else {
-            res.status(201).json('User already seeded')
-        }
+        res.status(201).json(inserted.length ? 'User seeded' : 'User already seeded')
     }
-    catch (error) {
+    catch {
         res.status(500).json({ error: 'Could not add new user' })
     }
 })
@@ -593,7 +605,7 @@ app.patch('/api/v1/users/:id/role', checkJwt, requirePermission('manage_users'),
             return res.status(404).json({ error: `User with id ${id} not found.` });
         }
         res.status(200).json(updated[0]);
-    } catch (error) {
+    } catch {
         res.status(500).json({ error: 'Could not update user role.' });
     }
 })
@@ -679,7 +691,7 @@ app.get('/api/v1/stacks', checkJwt, async (req, res) => {
             res.status(201).json(albums)
         }
     }
-    catch (error) {
+    catch {
         res.status(500).json({ error: 'Could not get user stack' })
     }
 })

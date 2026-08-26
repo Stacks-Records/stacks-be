@@ -4,7 +4,8 @@
   "description": "",
   "main": "api/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "lint": "eslint .",
     "dev": "knex migrate:latest && knex seed:run",
     "start": "node api/index.js",
     "build": "echo \"No build step\"",
@@ -22,6 +23,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-oauth2-jwt-bearer": "^1.6.0",
+    "express-rate-limit": "^8.6.2",
     "knex": "^3.1.0",
     "pg": "^8.12.0",
     "zod": "^4.4.3"
@@ -30,6 +32,10 @@
     "@babel/core": "^7.24.9",
     "@babel/node": "^7.24.8",
     "@babel/preset-env": "^7.24.8",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.11.0",
+    "jest": "^30.4.2",
     "nodemon": "^3.1.7"
   }
 }

@@ -1,5 +1,7 @@
 # Stacks API
 
+[![CI](https://github.com/Stacks-Records/stacks-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Stacks-Records/stacks-backend/actions/workflows/ci.yml)
+
 The back-end REST API for Stacks — an album collection app. Built with Express
 and PostgreSQL (via Knex), secured with Auth0 JWTs and role-based permissions,
 and deployed as a Vercel serverless function.
