@@ -84,10 +84,18 @@ const checkJwt = auth({
     issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
 });
 
-// Identity comes from the verified JWT, never a client-supplied header — a header
-// can be spoofed to any value, which would let any valid token claim an admin
-// email. The header is only a last-resort fallback for tokens lacking the claim.
-const getAuthEmail = (req) => req.auth?.payload?.email || req.auth?.email || req.headers.email;
+// Identity comes only from a JWT claim proven to belong to the caller. Users are
+// keyed by email (see the dedupe migration), so trusting an unverified email would
+// let a second identity (e.g. a "Sign Up" account) silently inherit an existing
+// account just by claiming someone else's address — email_verified is Auth0's
+// confirmation that the identity provider actually checked that. A client-supplied
+// `Email` header can never carry that proof, so it is never trusted as an identity
+// source here, verified or not.
+const getAuthEmail = (req) => {
+    const email = req.auth?.payload?.email || req.auth?.email;
+    const emailVerified = req.auth?.payload?.email_verified ?? req.auth?.email_verified;
+    return email && emailVerified === true ? email : undefined;
+};
 
 const requirePermission = (permission) => {
     return async (req, res, next) => {
