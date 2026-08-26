@@ -14,6 +14,7 @@ const { loadAlbumList } = require('./albumList');
 const { fetchAlbumArticle } = require('./wikipedia');
 const { enrichAlbum } = require('./enrich');
 const { parseGenres, canonicalizeName, genreSlug } = require('./genres');
+const rateLimit = require('express-rate-limit');
 
 // Sets an album's genres from a list of genre names and (re)writes the album_genres
 // links. This is the create-or-attach core: each name is normalized and matched by
@@ -76,6 +77,17 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Email'],
     credential: true
 }))
+
+// Every route below hits the database, so an unrestricted client can hammer it into
+// unresponsiveness (CodeQL js/missing-rate-limiting). Caps requests per IP; on Vercel
+// each warm serverless instance tracks its own count (no shared store across
+// instances/regions), so this is a per-instance backstop, not a hard global ceiling.
+app.use(rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+}));
 
 const port = process.env.PORT || 3001
 
